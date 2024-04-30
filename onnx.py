@@ -1,8 +1,8 @@
 import numpy as np
 
-import utils
 from entity.config import Config
 from entity.model import Model
+from utils import utils
 
 
 def reset_past():
