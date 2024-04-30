@@ -1,16 +1,8 @@
-import random
-
 import numpy as np
-import onnxruntime as ort
-from transformers import AutoTokenizer
 
+import utils
 from entity.config import Config
-from utils import softmax, normalize, temperature_scaling, top_k_sampling, top_p_sampling
-
-# token = "4k"
-token = "128k"
-tokenizer = AutoTokenizer.from_pretrained(f"microsoft/Phi-3-mini-{token}-instruct", trust_remote_code=True)
-ort_sess = ort.InferenceSession(f"tmp/phi3-mini-{token}-instruct-cpu-int4-rtn-block-32.onnx")
+from entity.model import Model
 
 
 def reset_past():
@@ -19,28 +11,32 @@ def reset_past():
     return past_key, past_value
 
 
-def get_input_ids(message):
+def get_input_ids_():
     conversation = [
-        {"role": "user", "content": "Hello, how are you?"},
-        {"role": "assistant", "content": "I am doing great."
-                                         # "I have a long experience as an engineer."
-                                         # "My favorite languages are python and kotlin."
-                                         "Please ask me anything."
-                                         "How can I help you today?"},
-        # {"role": "user", "content": "Who are you?"},
-        # {"role": "user", "content": "I would like to hear the Japanese folk tale Momotaro."},
-        # {"role": "assistant", "content": message},
-        {"role": "user", "content": "one plus one equals?"},
+        {"role": "user", "content": Config.user_prompt1},
+        {"role": "assistant", "content": Config.assistant_prompt1},
+        {"role": "user", "content": Config.user_prompt2},
     ]
-    input_ids = tokenizer.apply_chat_template(conversation, add_generation_prompt=False, return_tensors="np")[0]
-    print("input =", tokenizer.decode(input_ids, skip_special_tokens=False, clean_up_tokenization_spaces=True))
+    input_ids = Model.tokenizer.apply_chat_template(conversation, add_generation_prompt=False, return_tensors="np")[0]
+    print("[input]", Model.tokenizer.decode(input_ids, skip_special_tokens=False, clean_up_tokenization_spaces=True))
+    return input_ids
+
+
+def get_input_ids():
+    input_ids = Model.tokenizer.encode(
+        f"<|system|>\n{''.join(Config.system_prompt)}<|end|>\n"
+        f"<|user|>\n{''.join(Config.user_prompt1)}<|end|>\n"
+        f"<|assistant|>\n{''.join(Config.assistant_prompt1)}<|end|>\n"
+        f"<|user|>\n{''.join(Config.user_prompt2)}<|end|>\n",
+        return_tensors="np"
+    )[0]
+    print("[input]", Model.decode(input_ids), "\n")
     return input_ids
 
 
 answer = []
 (past_key, past_value) = reset_past()
-input_ids = get_input_ids("")
-input_ids = np.append(input_ids, np.zeros((100,), dtype=np.int64))
+input_ids = get_input_ids()
 
 
 for count in range(100):
@@ -54,10 +50,11 @@ for count in range(100):
     for i in range(32):
         data[f"past_key_values.{i}.key"] = past_key[i]
         data[f"past_key_values.{i}.value"] = past_value[i]
-    outputs = ort_sess.run(None, data)
-    next_id = top_p_sampling(logits=outputs[0][0][0]) if count > 0 else 32001
+    outputs = Model.ort_sess.run(None, data)
+    logits = utils.apply_repetition_penalty(outputs[0][0][0], answer)
+    next_id = utils.top_k_sampling(logits=logits) if count > 0 else 32001
     answer += [next_id]
-    print("[decode]", tokenizer.decode(answer, skip_special_tokens=False, clean_up_tokenization_spaces=True), end="\n")
+    print("[decode]", Model.decode(answer))
     if next_id == 32007: break
     input_ids = np.array([next_id])
     past_key = [np.array(outputs[(i*2)+1]) for i in range(32)]
