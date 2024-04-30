@@ -1,42 +1,11 @@
 import numpy as np
 
-from entity.config import Config
 from entity.model import Model
 from utils import utils
 
-
-def reset_past():
-    past_key = [np.zeros((1, 32, 0, 96), dtype=np.float32) for _ in range(32)]
-    past_value = [np.zeros((1, 32, 0, 96), dtype=np.float32) for _ in range(32)]
-    return past_key, past_value
-
-
-def get_input_ids_():
-    conversation = [
-        {"role": "user", "content": Config.user_prompt1},
-        {"role": "assistant", "content": Config.assistant_prompt1},
-        {"role": "user", "content": Config.user_prompt2},
-    ]
-    input_ids = Model.tokenizer.apply_chat_template(conversation, add_generation_prompt=False, return_tensors="np")[0]
-    print("[input]", Model.tokenizer.decode(input_ids, skip_special_tokens=False, clean_up_tokenization_spaces=True))
-    return input_ids
-
-
-def get_input_ids():
-    input_ids = Model.tokenizer.encode(
-        f"<|system|>\n{''.join(Config.system_prompt)}<|end|>\n"
-        f"<|user|>\n{''.join(Config.user_prompt1)}<|end|>\n"
-        f"<|assistant|>\n{''.join(Config.assistant_prompt1)}<|end|>\n"
-        f"<|user|>\n{''.join(Config.user_prompt2)}<|end|>\n",
-        return_tensors="np"
-    )[0]
-    print("[input]", Model.decode(input_ids), "\n")
-    return input_ids
-
-
 answer = []
-(past_key, past_value) = reset_past()
-input_ids = get_input_ids()
+(past_key, past_value) = Model.reset_past()
+input_ids = Model.get_input_ids()
 
 
 for count in range(100):
@@ -60,31 +29,3 @@ for count in range(100):
     past_key = [np.array(outputs[(i*2)+1]) for i in range(32)]
     past_value = [np.array(outputs[(i+1)*2]) for i in range(32)]
     print("")
-
-def log():
-    pass
-    # print("[top_k_sampling]", tokenizer.decode(top_k_sampling(outputs[0][0][0])))
-    # print("[top_p_sampling]", tokenizer.decode(top_p_sampling(outputs[0][0][0])))
-    # print(input_ids.shape, attention_mask.shape, position_ids.shape)
-    # fix_ids = np.append(input_ids, np.zeros((past_key[0].shape[2],), dtype=np.int64))
-    # fix_ids = np.append(input_ids, np.zeros((0,), dtype=np.int64))
-    # print(past_key[0].shape, past_key[0].dtype, past_value[1].shape, past_value[1].dtype)
-    # next_id = top10[0]
-    # print(output_ids, output_ids[np.argmax(output_num)])
-    # print([o[np.argmax(o)] for o in outputs[0][0]])
-    # print(outputs[0].shape)
-    # print(tokenizer.decode(output_ids, skip_special_tokens=False))
-    # if np.max(output_num) < 0.5:
-    #     next_id = input_ids[0]
-    #     input_ids = get_input_ids(tokenizer.decode(answer, skip_special_tokens=True))
-    #     (past_key, past_value) = reset_past()
-    # output_ids = [np.argmax(o) for o in output_norm]
-    # output_num = [o[np.argmax(o)] for o in output_norm]
-    # print("==>", output_ids[0], output_num[0])
-    # top = sorted([(n, i) for (i, n) in enumerate(output_norm[0])], reverse=True)[:5]
-    # candidate = [i for (n, i) in top if n > 0.1]
-    # candidate = candidate if len(candidate) > 0 else [top[0][1]]
-    # next_id = random.choice(candidate) if count > 0 else 32001
-    # print("[candidate]", tokenizer.decode(candidate))
-    # print(f"</s> {output_norm[0][2]:.3%}, </endoftext> {output_norm[0][32000]:.3%}, <|end|> {output_norm[0][32007]:.3%}")
-    # print("[top]", top)

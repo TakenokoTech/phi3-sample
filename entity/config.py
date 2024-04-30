@@ -31,6 +31,6 @@ class Config:
         # "Hello."
         # "Tell me what happens if you leave ice in a place exposed to air."
         # "Who are you?"
-        # "I would like to hear the Japanese folk tale Momotaro."
+        # "Can you teach me a dish using eggs?"
         "What is the capital of France?"
     ]
